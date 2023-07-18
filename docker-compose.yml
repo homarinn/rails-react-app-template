@@ -1,0 +1,64 @@
+version: '3.9'
+services:
+  frontend: # Reactコンテナ
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+    volumes:
+      - ./frontend:/myapp
+    ports:
+      - 3000:3000
+  backend: # Railsコンテナ
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    volumes:
+      - ./backend:/myapp
+      - backend-tmp-data:/myapp/tmp
+      - rails-gem-data:/usr/local/bundle
+    environment:
+      TZ: Asia/Tokyo
+    ports:
+      - 3001:3000
+    depends_on:
+      - db
+      - redis
+    tty: true
+    stdin_open: true
+  db: # MySQLコンテナ
+    image: mysql:8.0.32
+    platform: linux/amd64
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - db-data:/var/lib/mysql # MySQLデータの永続化
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+    ports:
+      - 3306:3306
+  redis: # Redisコンテナ
+    image: redis:7.0.10
+    platform: linux/amd64
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data # Redisデータの永続化
+    ports:
+      - 6379:6379
+  nginx: # Nginxコンテナ
+    build:
+      context: .
+      dockerfile: nginx.Dockerfile
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - backend-tmp-data:/myapp/tmp
+    ports:
+      - 80:80
+      - 443:443
+    depends_on:
+      - backend
+      - frontend
+volumes:
+  backend-tmp-data:
+  db-data:
+  redis-data:
+  rails-gem-data:
+    driver: local
